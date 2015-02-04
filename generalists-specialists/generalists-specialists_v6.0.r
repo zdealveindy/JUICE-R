@@ -1,6 +1,6 @@
 # JUICE-R JUICE.table R.exe no.transf http://www.davidzeleny.net/juice-r/doku.php?id=scripts:generalists-specialists
 
-# dependent libraries: vegan, foreach, parallel
+# dependent libraries: parallel and betapart
 packages <- c('parallel', 'betapart') 
 
 
