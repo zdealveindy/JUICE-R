@@ -1,4 +1,4 @@
-# JUICE-R JUICE.table R.exe no.transf http://www.davidzeleny.net/juice-r/doku.php?id=scripts:generalists-specialists
+# JUICE-R JUICE.table JUICE.species.data R.exe no.transf http://www.davidzeleny.net/juice-r/doku.php?id=scripts:generalists-specialists
 
 # dependent libraries: parallel and betapart
 packages <- c('parallel', 'betapart') 
@@ -65,9 +65,9 @@ close (win.pb2)
 b
 }
 
-calculate.theta <- function (input.matrix, sp, select.spp, remove.out, psample, reps, version, parallel, win.pb)
+calculate.theta <- function (input.matrix, species.data, sp, select.spp, remove.out, psample, reps, version, parallel, win.pb)
 {
-  if (parallel) write (paste (sp, '\n'), file = 'GS-progress.r', append = T) else setWinProgressBar (win.pb, sp, label = paste ("Species no. ", sp))
+  if (parallel) write (paste (sp, '\n'), file = 'GS-progress.txt', append = T) else setWinProgressBar (win.pb, sp, label = paste ("Species no. ", sp))
   temp.matrix <- input.matrix[input.matrix [,colnames (input.matrix) == names (select.spp[sp])]>0,]
   temp.matrix <- temp.matrix[,colSums (temp.matrix) > 0]
   
@@ -112,7 +112,7 @@ calculate.theta <- function (input.matrix, sp, select.spp, remove.out, psample, 
   }
 }
 
-GS.function <- function (input.matrix, reps, psample, version = "multiplicative", beals.file, parallel = parallel, no.cores = no.cores, remove.out = remove.out) # the function calculating theta value of species specialization
+GS.function <- function (input.matrix, species.data, reps, psample, version = "multiplicative", beals.file, parallel = parallel, no.cores = no.cores, remove.out = remove.out) # the function calculating theta value of species specialization
 {
 if ( is.na (reps) || reps < 2) {
   tkmessageBox (type = "ok", message = "Number of random subsamples must be integer >= 2")
@@ -165,27 +165,30 @@ win.pb <- winProgressBar (title = "Calculation progress", label = paste ("Specie
 temp.res <- lapply (1:Nspp, FUN = function (sp) calculate.theta (input.matrix = input.matrix, sp = sp, select.spp = select.spp, remove.out = remove.out, psample = psample, reps = reps, version = version, parallel = parallel, win.pb = win.pb))
 close (win.pb)
 theta.out <- as.data.frame (matrix (unlist (temp.res), ncol = 9, byrow = T, dimnames = list (NULL, c('sci.name', 'local.avgS', 'occur.freq', 'meanco', 'meanco.sd', 'meanco.u', 'meanco.l', 'GS', 'GS.sd'))))
-write.table (theta.out, file = 'theta_out.txt', sep = '\t', qmethod = 'double', col.names = NA)
+theta.out <- cbind (sci.name = theta.out[,1], species.data[as.character (theta.out[,'sci.name']),1:2], theta.out[,-1])
+write.table (theta.out, file = 'theta_out.txt', sep = '\t', qmethod = 'double', col.names = T, row.names = F)
 }
 
 if (parallel)
 {
 require (parallel)
 workers <- makeCluster (no.cores)
-if (file.exists ('GS-progress.r')) file.remove ('GS-progress.r')
+if (file.exists ('GS-progress.txt')) file.remove ('GS-progress.txt')
 clusterExport (workers, c('calculate.theta', 'tclvalue', 'input.matrix', 'select.spp', 'remove.out', 'psample', 'reps', 'version', 'parallel'), envir = environment ())
 temp.res <- parLapplyLB (workers, 1:Nspp, fun = function (sp) calculate.theta (input.matrix = input.matrix, sp = sp, select.spp = select.spp , remove.out = remove.out, psample = psample, reps = reps, version = version, parallel = parallel, win.pb = NULL))
-theta.out <- as.data.frame (matrix (unlist (temp.res), ncol = 9, byrow = T, dimnames = list (NULL, c('sci.name', 'local.avgS', 'occur.freq', 'meanco', 'meanco.sd', 'meanco.u', 'meanco.l', 'GS', 'GS.sd'))))
-write.table (theta.out, file = 'theta_out.txt', sep = '\t', qmethod = 'double', col.names = NA)
+theta.out <- cbind (sci.name = theta.out[,1], species.data[as.character (theta.out[,'sci.name']),1:2], theta.out[,-1])
+write.table (theta.out, file = 'theta_out.txt', sep = '\t', qmethod = 'double', col.names = T, row.names = F)
 stopCluster (workers)
 }
 
-spd <- matrix (unlist (strsplit (as.character(theta.out[,1]), split = "_")), ncol = 2, byrow = T)
-spaces <- 50-unlist (lapply ((strsplit(spd[,1], split = "" )), length))
-rep.spaces <- function (times) paste (rep (" ", times), collapse = "")
-write.table (file = "theta_import.species.data.txt", paste (spd[,1], unlist (apply (as.matrix (spaces), 1, rep.spaces)), theta.out[,8]), quote = F, row.names = F, col.names = F)
+#spd <- matrix (unlist (strsplit (as.character(theta.out[,1]), split = "_")), ncol = 2, byrow = T)
+#spaces <- 50-unlist (lapply ((strsplit(spd[,1], split = "" )), length))
+#rep.spaces <- function (times) paste (rep (" ", times), collapse = "")
+write.table (file = "theta_import.species.data.via.clipboard.txt", theta.out[,c('full.sci.name', 'layer', 'GS')], quote = F, row.names = F, col.names = F, sep = '\t')
+write.table (file = "clipboard", theta.out[,c('full.sci.name', 'layer', 'GS')], quote = F, row.names = F, col.names = F, sep = '\t')
 
-tkmessageBox (type = "ok", message = paste ("Result files were saved into", getwd (), "\n\nYou can use the file theta_import.species.data.txt to import the species theta values directly to JUICE (File > Import > Species Data)."))
+
+tkmessageBox (type = "ok", message = paste ("Species theta values have been copied into clipboard - you can import them directly into JUICE (Edit > Paste Clipboard to BLACK species names).\n\nResult files were saved into", getwd (), "\n\nYou can also use the file theta_import.species.data.via.clipboard.txt to import the species theta values to JUICE (Edit > Paste Clipboard to BLACK species names)."))
 end.end <- T
   }
 cancel <- tclVar (1)
@@ -198,6 +201,11 @@ if (!all (unlist (lapply (packages, FUN = function (x) require (x, character.onl
 cancel <- tclVar (0)
 end.end <- F
 beals.file <- NA
+
+input.matrix <- as.matrix (JUICE.table)
+species.data <- JUICE.species.data[,c('Species_Name', 'Layer')]
+rownames (species.data) <- JUICE.species.data[, 'SpecName_Layer']
+names (species.data) <- c('full.sci.name', 'layer')
 
 GSmethods <- c ("Additive beta diversity (Fridley et al. 2007)", "Multiplicative beta diversity (Zeleny 2009)", "Multiplicative beta on species pool (Botta-Dukat 2012)", "Pairwise Jaccard dissimilarity (Manthey & Fridley 2009)", "Multiple Sorensen dissimilarity (Manthey & Fridley (2009)")
 base <- tktoplevel()
@@ -235,7 +243,7 @@ tkwm.title(base, "Generalists-specialists")
   label.entry2 <- tklabel (frame.c, text = "Number of random subsamples ")
   entry2 <- tkentry (frame.c, width = 5, textvariable = tk.reps)
   
-  button1 <- tkbutton (frame.d, text = "Calculate", command = function () end.end <- GS.function (as.matrix (JUICE.table), psample = as.numeric (tclvalue (tk.psample)), reps = as.numeric (tkget (entry2)), version = as.character (tclvalue (GSmethod)), beals.file = beals.file, parallel = as.logical (as.numeric (tclvalue (parallel))), no.cores = as.numeric (tclvalue (no.cores)), remove.out = as.logical (as.numeric (tclvalue (remove.out)))))
+  button1 <- tkbutton (frame.d, text = "Calculate", width = 10, height = 2, command = function () end.end <- GS.function (input.matrix = input.matrix, species.data = species.data, psample = as.numeric (tclvalue (tk.psample)), reps = as.numeric (tkget (entry2)), version = as.character (tclvalue (GSmethod)), beals.file = beals.file, parallel = as.logical (as.numeric (tclvalue (parallel))), no.cores = as.numeric (tclvalue (no.cores)), remove.out = as.logical (as.numeric (tclvalue (remove.out)))))
 
 
   choose.label <- tklabel (frame.e.2, text = 'Select the file with beals smoothed data')
@@ -253,7 +261,7 @@ tkwm.title(base, "Generalists-specialists")
   
   tkpack (tklabel (frame.g, text = 'Outlier analysis (McCune & Mefford 1999, suggested by Botta-Dukat 2012)'), tkcheckbutton (frame.g, text = 'remove outlier samples (with very different species composition)', variable = remove.out), anchor = 'w')
   
-  tkpack (label.radio, radio1, radio2, radio3, radio4, radio5, anchor = 'w')
+  tkpack (label.radio, radio1, radio2, radio4, radio5, radio3, anchor = 'w')
   tkpack (label.entry1, entry1, anchor = 'w', side = 'left')
   tkpack (label.entry2, entry2, anchor = 'w', side = 'left')
   tkpack (button1)
@@ -261,6 +269,7 @@ tkwm.title(base, "Generalists-specialists")
   tkpack (parallel.label,  frame.f.1, anchor = 'w')
   
   tkpack (tklabel (frame.title, text = 'Calculation of generalists and specialists using co-occurrence species data \n Author: David Zeleny (zeleny.david@gmail.com) \n JUICE-R application (www.bit.ly/habitat-specialists)'), ipady = 10, ipadx = 10, padx = 10, pady = 10)
+
   tkpack (frame.title, side = 'top', expand = T, fill = 'both')
   tkpack (frame.a, side = "top", ipady = 10, ipadx = 10, padx = 10, pady = 10, anchor = "w", expand = T, fill = 'both')
   tkpack (frame.e, ipady = 10, ipadx = 10, padx = 10, pady = 10, anchor = "w", expand = T, fill = 'both')
