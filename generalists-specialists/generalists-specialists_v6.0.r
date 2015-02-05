@@ -175,15 +175,13 @@ require (parallel)
 workers <- makeCluster (no.cores)
 if (file.exists ('GS-progress.txt')) file.remove ('GS-progress.txt')
 clusterExport (workers, c('calculate.theta', 'tclvalue', 'input.matrix', 'select.spp', 'remove.out', 'psample', 'reps', 'version', 'parallel'), envir = environment ())
-temp.res <- parLapplyLB (workers, 1:Nspp, fun = function (sp) calculate.theta (input.matrix = input.matrix, sp = sp, select.spp = select.spp , remove.out = remove.out, psample = psample, reps = reps, version = version, parallel = parallel, win.pb = NULL))
+temp.res <- clusterApplyLB (workers, 1:Nspp, fun = function (sp) calculate.theta (input.matrix = input.matrix, sp = sp, select.spp = select.spp , remove.out = remove.out, psample = psample, reps = reps, version = version, parallel = parallel, win.pb = NULL))
+theta.out <- as.data.frame (matrix (unlist (temp.res), ncol = 9, byrow = T, dimnames = list (NULL, c('sci.name', 'local.avgS', 'occur.freq', 'meanco', 'meanco.sd', 'meanco.u', 'meanco.l', 'GS', 'GS.sd'))))
 theta.out <- cbind (sci.name = theta.out[,1], species.data[as.character (theta.out[,'sci.name']),1:2], theta.out[,-1])
 write.table (theta.out, file = 'theta_out.txt', sep = '\t', qmethod = 'double', col.names = T, row.names = F)
 stopCluster (workers)
 }
 
-#spd <- matrix (unlist (strsplit (as.character(theta.out[,1]), split = "_")), ncol = 2, byrow = T)
-#spaces <- 50-unlist (lapply ((strsplit(spd[,1], split = "" )), length))
-#rep.spaces <- function (times) paste (rep (" ", times), collapse = "")
 write.table (file = "theta_import.species.data.via.clipboard.txt", theta.out[,c('full.sci.name', 'layer', 'GS')], quote = F, row.names = F, col.names = F, sep = '\t')
 write.table (file = "clipboard", theta.out[,c('full.sci.name', 'layer', 'GS')], quote = F, row.names = F, col.names = F, sep = '\t')
 
